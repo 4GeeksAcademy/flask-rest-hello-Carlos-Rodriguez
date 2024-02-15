@@ -1,85 +1,41 @@
-"""
-This module takes care of starting the API Server, Loading the DB and Adding the endpoints
-"""
-import os
-from flask import Flask, request, jsonify, url_for
+from flask import Flask, jsonify, request
+from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from flask_swagger import swagger
 from flask_cors import CORS
-from utils import APIException, generate_sitemap
-from admin import setup_admin
-from models import db, User, People, Planets
-#from models import Person
+from models import db, User, People, Planets, Favorites
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
 
-db_url = os.getenv("DATABASE_URL")
-if db_url is not None:
-    app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace("postgres://", "postgresql://")
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:////tmp/test.db"
+app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///test.db"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-MIGRATE = Migrate(app, db)
 db.init_app(app)
+Migrate(app, db)
 CORS(app)
-setup_admin(app)
 
-# Handle/serialize errors like a JSON object
-@app.errorhandler(APIException)
-def handle_invalid_usage(error):
-    return jsonify(error.to_dict()), error.status_code
+@app.route('/users', methods=['GET'])
+def get_users():
+    all_users = User.query.all()
+    return jsonify([user.serialize() for user in all_users])
 
-# generate sitemap with all your endpoints
-@app.route('/')
-def sitemap():
-    return generate_sitemap(app)
+@app.route('/users/favorites', methods=['GET'])
+def get_user_favorites():
+    # Assuming you have some authentication mechanism to get the current user
+    user_id = 1  # Example user ID
+    user_favorites = Favorites.query.filter_by(user_id=user_id).all()
+    return jsonify([favorite.serialize() for favorite in user_favorites])
 
-@app.route('/user', methods=['GET'])
-def handle_hello():
+@app.route('/favorites/planet/<int:planet_id>', methods=['POST'])
+def add_favorite_planet(planet_id):
+    # Assuming you have some authentication mechanism to get the current user
+    user_id = 1  # Example user ID
+    new_favorite = Favorites(user_id=user_id, planets_id=planet_id)
+    db.session.add(new_favorite)
+    db.session.commit()
+    return jsonify(new_favorite.serialize()), 200
 
-    response_body = {
-        "msg": "Hello, this is your GET /user response "
-    }
+# Similarly, you can implement other endpoints for /favorites/people, /favorite/planet/<int:planet_id>/delete, etc.
 
-    return jsonify(response_body), 200
-
-@app.route('/people', methods=['GET'])
-def get_people():
-    all_people = People.query.all()
-    results = []
-    for people in all_people:
-        results.append(people.serialize())
-
-    return jsonify(results), 200
-
-@app.route('/people/<int:people_id>', methods=['GET'])
-def get_people_id(people_id):
-    people = People.query.get(people_id)
-    if People is None:
-        return jsonify(), 200
-    return jsonify(people.serialize()), 200
-
-
-@app.route('/planets', methods=['GET'])
-def get_planets():
-    all_planets = Planets.query.all()
-    results = []
-    for planets in all_planets:
-        results.append(planets.serialize())
-
-    return jsonify(results), 200
-
-@app.route('/planets/<int:planets_id>', methods=['GET'])
-def get_planet_id(planets_id):
-    planets= Planets.query.get(planets_id)
-    if Planets is None:
-        return jsonify(), 200
-    return jsonify(planets.serialize()), 200
-
-
-# this only runs if `$ python src/app.py` is executed
 if __name__ == '__main__':
-    PORT = int(os.environ.get('PORT', 3000))
-    app.run(host='0.0.0.0', port=PORT, debug=False)
+    app.run(debug=True)
