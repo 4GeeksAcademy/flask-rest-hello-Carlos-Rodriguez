@@ -1,41 +1,180 @@
-from flask import Flask, jsonify, request
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from flask_cors import CORS
-from models import db, User, People, Planets, Favorites
 
+"""
+This module takes care of starting the API Server, Loading the DB and Adding the endpoints
+"""
+import os
+from flask import Flask, request, jsonify, url_for
+from flask_migrate import Migrate
+from flask_swagger import swagger
+from flask_cors import CORS
+from utils import APIException, generate_sitemap
+from admin import setup_admin
+from models import db, User, People, Planets, Favorites
+#from models import Person
 app = Flask(__name__)
 app.url_map.strict_slashes = False
-
-app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///test.db"
+db_url = os.getenv("DATABASE_URL")
+if db_url is not None:
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace("postgres://", "postgresql://")
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:////tmp/test.db"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
+MIGRATE = Migrate(app, db)
 db.init_app(app)
-Migrate(app, db)
 CORS(app)
+setup_admin(app)
+# Handle/serialize errors like a JSON object
+@app.errorhandler(APIException)
+def handle_invalid_usage(error):
+    return jsonify(error.to_dict()), error.status_code
+# generate sitemap with all your endpoints
 
-@app.route('/users', methods=['GET'])
-def get_users():
-    all_users = User.query.all()
-    return jsonify([user.serialize() for user in all_users])
 
-@app.route('/users/favorites', methods=['GET'])
-def get_user_favorites():
-    # Assuming you have some authentication mechanism to get the current user
-    user_id = 1  # Example user ID
-    user_favorites = Favorites.query.filter_by(user_id=user_id).all()
-    return jsonify([favorite.serialize() for favorite in user_favorites])
+@app.route('/')
+def sitemap():
+    return generate_sitemap(app)
 
-@app.route('/favorites/planet/<int:planet_id>', methods=['POST'])
-def add_favorite_planet(planet_id):
-    # Assuming you have some authentication mechanism to get the current user
-    user_id = 1  # Example user ID
-    new_favorite = Favorites(user_id=user_id, planets_id=planet_id)
-    db.session.add(new_favorite)
+
+@app.route('/user', methods=['GET'])
+def get_user():
+    users = User.query.all()
+    print(users)
+    all_users = list(map(lambda x: x.serialize(), users))
+    print(all_users)
+    return jsonify(all_users)
+
+
+@app.route('/people', methods=['GET'])
+def get_people():
+    peoples = People.query.all()
+    all_people = list(map(lambda x: x.serialize(), peoples))
+    return jsonify(all_people), 200
+
+
+@app.route('/planets', methods=['GET'])
+def get_planet():
+    planetas = Planets.query.all()
+    all_planet = list(map(lambda x: x.serialize(), planetas))
+    return jsonify(all_planet), 200
+
+
+@app.route('/user', methods=['POST'])
+def create_user():
+    request_body_user = request.get_json()
+    new_user = User(first_name=request_body_user["first_name"], last_name=request_body_user["last_name"], email=request_body_user["email"], password=request_body_user["password"])
+    db.session.add(new_user)
     db.session.commit()
-    return jsonify(new_favorite.serialize()), 200
+    return jsonify(request_body_user), 200
 
-# Similarly, you can implement other endpoints for /favorites/people, /favorite/planet/<int:planet_id>/delete, etc.
 
+@app.route('/planets', methods=['POST'])
+def create_planet():
+    request_body_planet = request.get_json()
+    new_planet = Planets(
+        name=request_body_planet["name"],
+        climate=request_body_planet["climate"],
+        terrain=request_body_planet["terrain"],
+        population=request_body_planet["population"]
+    )
+    db.session.add(new_planet)
+    db.session.commit()
+    return jsonify(request_body_planet), 200
+
+
+@app.route('/people', methods=['POST'])
+def create_person():
+    request_body_person = request.get_json()
+    new_person = People(
+        name=request_body_person["name"],
+        birth_year=request_body_person["birth_year"],
+        eye_color=request_body_person["eye_color"],
+        hair_color=request_body_person["hair_color"],
+        height=request_body_person["height"],
+        mass=request_body_person["mass"],
+        skin_color=request_body_person["skin_color"]
+    )
+    db.session.add(new_person)
+    db.session.commit()
+    return jsonify(request_body_person), 200
+@app.route('/people/<int:people_id>', methods=['GET'])
+def get_people_id(people_id):
+    people = People.query.get(people_id)
+    if people:
+        return jsonify(people.serialize()), 200
+    else:
+        return jsonify({"error": "People not found"}), 404
+    
+
+@app.route('/planets/<int:planets_id>', methods=['GET'])
+def get_planet_id(planets_id):
+    planet = Planets.query.get(planets_id)
+    if planet:
+        return jsonify(planet.serialize()), 200
+    else:
+        return jsonify({"error": "Planet not found"}), 404
+    
+
+@app.route('/user/favorites', methods=['GET'])
+def get_favorites():
+    favorite = Favorites.query.all()
+    all_favorites = list(map(lambda x: x.serialize(), favorite))
+    return jsonify(all_favorites), 200
+
+
+@app.route('/favorites/planets/<int:planet_id>', methods=['POST'])
+def create_favorites_planets(planet_id):
+    body = request.get_json()
+    new_planet = Planets(
+        id=body.get('id'),
+        name=body.get('name'),
+        climate=body.get('climate'),
+        terrain=body.get('terrain'),
+        population=body.get('population')
+    )
+    db.session.add(new_planet)
+    db.session.commit()
+    return jsonify(new_planet.serialize()), 200
+
+
+@app.route('/favorites/people/<int:people_id>', methods=['POST'])
+def create_favorites_people(people_id):
+    body = request.get_json()
+    new_people = People(
+        id=body.get('id'),
+        name=body.get('name'),
+        birth_year=body.get('birth_year'),
+        eye_color=body.get('eye_color'),
+        height=body.get('height'),
+        mass=body.get('mass'),
+        skin_color=body.get('skin_color'),
+        hair_color=body.get('hair_color')
+    )
+    db.session.add(new_people)
+    db.session.commit()
+    return jsonify(new_people.serialize()), 200
+
+
+@app.route('/favorites/people/<int:people_id>', methods=['DELETE'])
+def delete_favorites_people(people_id):
+    people_to_delete = People.query.get(people_id)
+    if people_to_delete:
+        db.session.delete(people_to_delete)
+        db.session.commit()
+        return jsonify({"message": "People deleted successfully"}), 200
+    else:
+        return jsonify({"error": "People not found"}), 404
+    
+    
+@app.route('/favorites/planets/<int:planets_id>', methods=['DELETE'])
+def delete_favorites_planets(planets_id):
+    planets_to_delete = Planets.query.get(planets_id)
+    if planets_to_delete:
+        db.session.delete(planets_to_delete)
+        db.session.commit()
+        return jsonify({"message": "Planet deleted successfully"}), 200
+    else:
+        return jsonify({"error": "Planet not found"}), 404
+# this only runs if `$ python src/app.py` is executed
 if __name__ == '__main__':
-    app.run(debug=True)
+    PORT = int(os.environ.get('PORT', 3000))
+    app.run(host='0.0.0.0', port=PORT, debug=False)

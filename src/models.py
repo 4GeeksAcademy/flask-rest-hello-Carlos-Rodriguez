@@ -1,64 +1,58 @@
 from flask_sqlalchemy import SQLAlchemy
-
 db = SQLAlchemy()
 
+
+
 class User(db.Model):
+    __tablename__ = "user"
     id = db.Column(db.Integer, primary_key=True)
+    first_name = db.Column(db.String(120))
+    last_name = db.Column(db.String(120))
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(80), nullable=False)
-    first_name = db.Column(db.String(120), nullable=False)
-    last_name = db.Column(db.String(120), nullable=False)
-
-    def __init__(self, email, password, first_name, last_name):
-        self.email = email
-        self.password = password
-        self.first_name = first_name
-        self.last_name = last_name
-
-    def serialize(self):
+    password = db.Column(db.String(80), unique=False, nullable=False)
+    is_active = db.Column(db.Boolean(), unique=False, nullable=True, default=False)
+def __repr__(self):
+        return '<User %r>' % self.email
+def serialize(self):
         return {
-            'id': self.id,
-            'email': self.email,
-            'first_name': self.first_name,
-            'last_name': self.last_name
+            "id": self.id,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "email": self.email,
         }
-
 class People(db.Model):
-    __tablename__ = 'people'
-
+    __tablename__ = "people"
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False)
-    gender = db.Column(db.Enum('masculine', 'femenine', 'non_binary'), nullable=False)
-    birth_day = db.Column(db.String(50), nullable=False)
-    eye_color = db.Column(db.String(50), nullable=False)
-    hair_color = db.Column(db.String(50), nullable=False)
-    height = db.Column(db.Integer, nullable=False)
-    mass = db.Column(db.Integer, nullable=False)
-    planet_id = db.Column(db.Integer, db.ForeignKey('planets.id'), nullable=False)
-
+    name = db.Column(db.String)
+    birth_year = db.Column(db.String)
+    eye_color = db.Column(db.String)
+    hair_color = db.Column(db.String)
+    height = db.Column(db.String)
+    mass = db.Column(db.String)
+    skin_color = db.Column(db.String)
+    def __repr__(self):
+        return '<People %r>' % self.name
     def serialize(self):
         return {
             "id": self.id,
             "name": self.name,
-            "gender": self.gender,
-            "birth_day": self.birth_day,
+            "birth_year": self.birth_year,
             "eye_color": self.eye_color,
             "hair_color": self.hair_color,
             "height": self.height,
             "mass": self.mass,
-            "planet_id": self.planet_id
+            "skin_color": self.skin_color,
         }
-
 class Planets(db.Model):
-    __tablename__ = 'planets'
-
+    __tablename__ = "planets"
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False)
-    climate = db.Column(db.String(50), nullable=False)
+    name = db.Column(db.String(120),  nullable=False)
+    climate = db.Column(db.String(50),  nullable=False)
     terrain = db.Column(db.String(50), nullable=False)
     population = db.Column(db.Integer, nullable=False)
-
-    def serialize(self):
+def __repr__(self):
+        return '<Planets %r>' % self.name
+def serialize(self):
         return {
             "id": self.id,
             "name": self.name,
@@ -66,19 +60,24 @@ class Planets(db.Model):
             "terrain": self.terrain,
             "population": self.population
         }
-
 class Favorites(db.Model):
-    __tablename__ = 'favorites'
-
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    people_id = db.Column(db.Integer, db.ForeignKey('people.id'), nullable=True)
-    planets_id = db.Column(db.Integer, db.ForeignKey('planets.id'), nullable=True)
-
-    def serialize(self):
+    id_user = db.Column(db.Integer, db.ForeignKey ("user.id"),  nullable=False)
+    id_people = db.Column(db.Integer, db.ForeignKey ("people.id"), nullable=False)
+    id_planets = db.Column(db.Integer, db.ForeignKey ("planets.id"), nullable=False)
+def __repr__(self):
+        return "<Favorites %r>" % self.id
+def serialize(self):
         return {
             "id": self.id,
-            "user_id": self.user_id,
-            "people_id": self.people_id,
-            "planets_id": self.planets_id,
+            "id_user": self.id_user,
+            "id_people": self.id_people,
+            "id_planets": self.id_planets,
         }
+
+
+
+
+
+
+
